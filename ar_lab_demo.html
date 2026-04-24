@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>分子级靶向透视互动实验室 - 演示版</title>
-    <!-- 引入 React, Babel (用于浏览器解析 JSX), Tailwind CSS 和 Lucide Icons -->
+    <!-- 引入 React, Babel (用于浏览器解析 JSX), Tailwind CSS -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
         @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(400%); } }
         .animate-scan { animation: scanline 3s linear infinite; }
         
@@ -23,7 +24,8 @@
         @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
         
-        body { background-color: #020617; }
+        body { background-color: #020617; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .mono { font-family: 'Space Mono', monospace; }
     </style>
 </head>
 <body>
@@ -32,15 +34,23 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // 图标组件包装 (因为 UMD 版本 Lucide 使用方式不同)
-        const Icon = ({ name, size = 24, className = "" }) => {
-            const iconRef = useRef(null);
-            useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            }, [name]);
-            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        // 內置常用的 SVG 圖標組件，確保穩定性
+        const Icons = {
+            Zap: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            ),
+            Camera: () => (
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            ),
+            Upload: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            ),
+            Refresh: () => (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            ),
+            Microscope: () => (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18c-2 0-3-1-3-3s1-3 3-3"></path><path d="M14 22H6c-2.2 0-4-1.8-4-4 0-1.5.8-2.8 2-3.5"></path><path d="m18 14-3 3"></path><path d="M22 9c0-1.7-1.3-3-3-3s-3 1.3-3 3l3 3 3-3Z"></path><path d="M10 2l1.6 4.8L12 8l4.8 1.6L12 11.2 11.6 16 10 11.2 5.2 12 10 10.4 8.4 5.6 10 10.4Z"></path></svg>
+            )
         };
 
         const App = () => {
@@ -53,14 +63,14 @@
             
             const aiAnalysis = {
                 fabric: "精梳棉 (95% Cotton)",
-                stain: "重度油渍 (Chili Oil)",
+                stain: "重度油漬 (Chili Oil)",
                 solution: "生物酶靶向因子 - 配方 A102"
             };
 
             const businessScenarios = [
-                { title: "专业旗舰款", srp: 88.0, cost: 26.4, margin: "70%", tag: "HOT", color: "blue" },
-                { title: "家庭量贩组", srp: 199.0, cost: 89.5, margin: "55%", tag: "VALUE", color: "cyan" },
-                { title: "环保浓缩装", srp: 42.0, cost: 10.5, margin: "75%", tag: "PROFIT", color: "indigo" }
+                { title: "專業旗艦款", srp: 88.0, cost: 26.4, margin: "70%", tag: "HOT", color: "blue" },
+                { title: "家庭量販組", srp: 199.0, cost: 89.5, margin: "55%", tag: "VALUE", color: "cyan" },
+                { title: "環保濃縮裝", srp: 42.0, cost: 10.5, margin: "75%", tag: "PROFIT", color: "indigo" }
             ];
 
             const videoRef = useRef(null);
@@ -85,7 +95,7 @@
                             }
                             return prev + 1;
                         });
-                    }, 30); 
+                    }, 35); 
                 }
                 return () => clearInterval(timer);
             }, [step]);
@@ -98,23 +108,30 @@
                     setStream(mediaStream);
                     setStep(1);
                 } catch (err) {
-                    setError("无法启动相机。请确保在 HTTPS 环境下执行并授予权限。");
+                    console.error(err);
+                    setError("無法啟動相機。請確保在 HTTPS 環境下執行並授予權限。");
                 }
             };
 
             const takePhoto = () => {
                 const video = videoRef.current;
                 const canvas = canvasRef.current;
-                if (video && canvas) {
+                if (video && canvas && video.readyState >= 2) {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    setCapturedImage(canvas.toDataURL('image/png'));
-                    setStep(2);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    
                     if (stream) {
                         stream.getTracks().forEach(track => track.stop());
                         setStream(null);
                     }
+                    
+                    setCapturedImage(dataUrl);
+                    setStep(2);
+                } else {
+                    setError("相機尚未就緒，請稍後再試。");
                 }
             };
 
@@ -128,8 +145,8 @@
             };
 
             return (
-                <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col items-center justify-center overflow-hidden">
-                    {/* 顶部导航 - 始终展示拍摄缩图 */}
+                <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center overflow-hidden">
+                    {/* 頂部導航 - 始終展示拍攝縮圖 */}
                     <div className="fixed top-0 w-full p-4 bg-slate-950/90 backdrop-blur-md z-50 flex justify-between items-center border-b border-white/10">
                         <div className="flex items-center gap-3">
                             {capturedImage ? (
@@ -138,7 +155,7 @@
                                 </div>
                             ) : (
                                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <Icon name="zap" size={20} className="text-white" />
+                                    <Icons.Zap />
                                 </div>
                             )}
                             <div className="text-left">
@@ -153,26 +170,26 @@
                         </div>
                     </div>
 
-                    {/* 主体验视窗 */}
+                    {/* 主體驗視窗 */}
                     <main className="relative w-full max-w-md aspect-[9/16] bg-slate-900 shadow-2xl border-x border-slate-800 overflow-hidden">
                         
                         {/* Step 0: Welcome */}
                         {step === 0 && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center space-y-10">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center space-y-10 animate-in fade-in duration-500">
                                 <div className="relative">
                                     <div className="absolute inset-0 bg-blue-500 blur-[80px] opacity-20 animate-pulse" />
                                     <div className="relative w-32 h-32 bg-slate-800 rounded-[2.5rem] border border-slate-700 flex items-center justify-center shadow-2xl">
-                                        <Icon name="camera" size={56} className="text-blue-400" />
+                                        <Icons.Camera />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
-                                    <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-tight">靶向洗净<br/><span className="text-blue-500">视觉演示</span></h2>
-                                    <p className="text-slate-400 text-sm leading-relaxed px-6">AI 自动识别面料与污渍，匹配最佳生物酶配方，还原衣物本色</p>
+                                    <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-tight">靶向洗淨<br/><span className="text-blue-500">視覺演示</span></h2>
+                                    <p className="text-slate-400 text-sm leading-relaxed px-6">AI 自動識別面料與污漬，匹配最佳生物酶配方，還原衣物本色</p>
                                 </div>
-                                {error && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs flex items-center gap-2"><Icon name="alert-circle" size={16} />{error}</div>}
+                                {error && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs flex items-center gap-2"><span>⚠</span> {error}</div>}
                                 <div className="w-full space-y-3 px-4">
-                                    <button onClick={startCamera} className="w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all">立即开启扫描</button>
-                                    <button onClick={() => fileInputRef.current.click()} className="w-full py-4 bg-slate-800 border border-slate-700 rounded-2xl font-bold text-sm text-slate-300 flex items-center justify-center gap-2"><Icon name="upload" size={20} />载入样本图片</button>
+                                    <button onClick={startCamera} className="w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all">立即開啟掃描</button>
+                                    <button onClick={() => fileInputRef.current.click()} className="w-full py-4 bg-slate-800 border border-slate-700 rounded-2xl font-bold text-sm text-slate-300 flex items-center justify-center gap-2"><Icons.Upload /> 載入樣本圖片</button>
                                 </div>
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                                     const file = e.target.files[0];
@@ -188,7 +205,7 @@
                         {/* Step 1: Camera View */}
                         {step === 1 && (
                             <div className="absolute inset-0 bg-black">
-                                <video ref={videoRef} autoPlay playsInline muted />
+                                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
                                 <div className="absolute inset-0 pointer-events-none p-10">
                                     <div className="w-full h-full border-2 border-blue-400/20 relative">
                                         <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-blue-400" />
@@ -228,8 +245,8 @@
                                 <div className="absolute bottom-0 w-full p-10 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent">
                                     {step === 2 ? (
                                         <div className="space-y-6">
-                                            <div className="bg-cyan-400/10 p-3 rounded-xl border border-cyan-400/20 text-xs font-bold text-center text-cyan-400">点击污渍中心进行靶向定位</div>
-                                            <button onClick={() => setStep(3)} className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl text-xl shadow-[0_16px_48px_rgba(6,182,212,0.3)]">启动分子级瓦解</button>
+                                            <div className="bg-cyan-400/10 p-3 rounded-xl border border-cyan-400/20 text-xs font-bold text-center text-cyan-400">點擊污漬中心點進行靶向定位</div>
+                                            <button onClick={(e) => { e.stopPropagation(); setStep(3); }} className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl text-xl shadow-[0_16px_48px_rgba(6,182,212,0.3)]">啟動分子級瓦解</button>
                                         </div>
                                     ) : (
                                         <div className="space-y-5">
@@ -241,7 +258,7 @@
                                                 <div className="h-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 rounded-full transition-all duration-100" style={{ width: `${cleaningProgress}%` }} />
                                             </div>
                                             {cleaningProgress >= 100 && (
-                                                <button onClick={() => setStep(4)} className="w-full py-4 bg-white text-slate-950 font-black rounded-2xl text-xl shadow-2xl">完成，查看分析报告</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setStep(4); }} className="w-full py-4 bg-white text-slate-950 font-black rounded-2xl text-xl shadow-2xl animate-bounce">完成，查看分析報告</button>
                                             )}
                                         </div>
                                     )}
@@ -253,27 +270,27 @@
                         {step === 4 && (
                             <div className="absolute inset-0 bg-slate-950 p-8 flex flex-col justify-center animate-slide-up">
                                 <div className="flex items-center gap-4 mb-10 p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
-                                    <Icon name="microscope" size={32} className="text-blue-400" />
+                                    <Icons.Microscope />
                                     <div className="text-left">
-                                        <h3 className="font-black text-blue-400 uppercase tracking-tighter italic">AI 分析结论</h3>
+                                        <h3 className="font-black text-blue-400 uppercase tracking-tighter italic">AI 分析結論</h3>
                                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest font-mono">Molecular Analysis Completed</p>
                                     </div>
                                 </div>
                                 <div className="space-y-6">
                                     {[
-                                        { label: "识别面料类型", value: aiAnalysis.fabric, icon: "info" },
-                                        { label: "污渍成分鉴定", value: aiAnalysis.stain, icon: "target" },
-                                        { label: "推荐洗涤方案", value: aiAnalysis.solution, icon: "droplets", highlight: true }
+                                        { label: "識別面料類型", value: aiAnalysis.fabric, icon: "ℹ" },
+                                        { label: "污漬成分鑑定", value: aiAnalysis.stain, icon: "🎯" },
+                                        { label: "推薦洗滌方案", value: aiAnalysis.solution, icon: "💧", highlight: true }
                                     ].map((item, idx) => (
                                         <div key={idx} className={`bg-slate-900 border ${item.highlight ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800'} rounded-2xl p-5 text-left`}>
                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                <Icon name={item.icon} size={14} /> {item.label}
+                                                <span className="text-blue-400">{item.icon}</span> {item.label}
                                             </p>
                                             <p className={`text-xl font-black ${item.highlight ? 'text-emerald-400' : 'text-white'}`}>{item.value}</p>
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={() => setStep(5)} className="mt-12 w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl">查看商业数据转换 →</button>
+                                <button onClick={() => setStep(5)} className="mt-12 w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all">查看商業數據轉換 →</button>
                             </div>
                         )}
 
@@ -283,23 +300,23 @@
                                 <div className="mt-16 space-y-6 pb-28">
                                     <div className="text-center space-y-1">
                                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Business Conversion Report</p>
-                                        <h2 className="text-3xl font-black italic text-blue-400 uppercase tracking-tighter">商业收益矩阵</h2>
+                                        <h2 className="text-3xl font-black italic text-blue-400 uppercase tracking-tighter">商業收益矩陣</h2>
                                     </div>
                                     <div className="space-y-4">
                                         {businessScenarios.map((item, idx) => (
-                                            <div key={idx} className="relative bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-4">
+                                            <div key={idx} className="relative bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-4 hover:border-blue-500/30 transition-colors">
                                                 <div className="absolute -top-2.5 right-4 px-3 py-1 bg-blue-600 text-[9px] font-black rounded-lg shadow-lg rotate-2">{item.tag}</div>
                                                 <div className="flex justify-between items-center border-b border-white/5 pb-3">
                                                     <span className="font-black uppercase tracking-tight text-white">{item.title}</span>
-                                                    <span className="text-emerald-400 font-black text-xs">毛利额 {item.margin}</span>
+                                                    <span className="text-emerald-400 font-black text-xs">毛利額 {item.margin}</span>
                                                 </div>
                                                 <div className="flex justify-between items-end">
                                                     <div className="space-y-1 text-left">
-                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">零售单价</p>
+                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">零售單價</p>
                                                         <p className="text-2xl font-mono font-black text-blue-400">¥ {item.srp.toFixed(2)}</p>
                                                     </div>
                                                     <div className="text-right space-y-1">
-                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">渠道进价</p>
+                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">渠道進價</p>
                                                         <p className="text-xl font-mono font-bold text-slate-600 italic">¥ {item.cost.toFixed(2)}</p>
                                                     </div>
                                                 </div>
@@ -307,11 +324,11 @@
                                         ))}
                                     </div>
                                     <button onClick={reset} className="flex items-center gap-2 text-slate-500 mx-auto text-xs font-bold py-6 hover:text-white transition-colors">
-                                        <Icon name="refresh-cw" size={14} /> ↺ 重新进行样本测试
+                                        <Icons.Refresh /> 重新進行樣本測試
                                     </button>
                                 </div>
                                 <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent z-50 flex justify-center">
-                                    <button className="w-full max-w-md py-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl font-black text-lg shadow-[0_16px_48px_rgba(37,99,235,0.4)]">锁定专利配方并立即订购</button>
+                                    <button className="w-full max-w-md py-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl font-black text-lg shadow-[0_16px_48px_rgba(37,99,235,0.4)]">鎖定專利配方並立即訂購</button>
                                 </div>
                             </div>
                         )}
@@ -325,7 +342,7 @@
                             System Online
                         </span>
                         <div className="w-1 h-1 bg-slate-800 rounded-full" />
-                        <span>v6.0.1-Stable</span>
+                        <span>v6.0.2-Stable</span>
                     </div>
                 </div>
             );
