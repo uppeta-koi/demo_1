@@ -1,355 +1,167 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>分子级靶向透视互动实验室 - 演示版</title>
-    <!-- 引入 React, Babel (用于浏览器解析 JSX), Tailwind CSS -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+// ✅ 使用方式：
+// 1. npm create vite@latest ar-lab-demo
+// 2. 選 React
+// 3. 將此檔案覆蓋 src/App.jsx
+// 4. npm install
+// 5. npm run dev
+// 6. npm run build → deploy dist 到 GitHub Pages / Vercel
 
-        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(400%); } }
-        .animate-scan { animation: scanline 3s linear infinite; }
-        
-        @keyframes ripple-wash { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0.8; border: 4px solid #fff; } 100% { transform: translate(-50%, -50%) scale(4); opacity: 0; border: 1px solid #06b6d4; } }
-        .ripple-effect { position: absolute; border-radius: 50%; pointer-events: none; animation: ripple-wash 1.5s infinite ease-out; }
+import { useState, useRef, useEffect } from 'react';
 
-        @keyframes particle-suck { 0% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; } 50% { opacity: 1; transform: translate(calc(var(--sx) * 0.4), calc(var(--sy) * 0.4)) scale(1.5); } 100% { transform: translate(0, 0) scale(0); opacity: 0; } }
-        .particle { position: absolute; width: 5px; height: 5px; background: #22d3ee; border-radius: 50%; animation: particle-suck 1s infinite ease-in; }
+export default function App() {
+  const [step, setStep] = useState(0);
+  const [stream, setStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [targetPoint, setTargetPoint] = useState({ x: 50, y: 50 });
+  const [cleaningProgress, setCleaningProgress] = useState(0);
+  const [error, setError] = useState(null);
 
-        @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
-        
-        body { background-color: #020617; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        .mono { font-family: 'Space Mono', monospace; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
-    <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+  useEffect(() => {
+    if (step === 1 && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [step, stream]);
 
-        // 內置常用的 SVG 圖標組件，確保穩定性
-        const Icons = {
-            Zap: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            ),
-            Camera: () => (
-                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            ),
-            Upload: () => (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            ),
-            Refresh: () => (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            ),
-            Microscope: () => (
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18c-2 0-3-1-3-3s1-3 3-3"></path><path d="M14 22H6c-2.2 0-4-1.8-4-4 0-1.5.8-2.8 2-3.5"></path><path d="m18 14-3 3"></path><path d="M22 9c0-1.7-1.3-3-3-3s-3 1.3-3 3l3 3 3-3Z"></path><path d="M10 2l1.6 4.8L12 8l4.8 1.6L12 11.2 11.6 16 10 11.2 5.2 12 10 10.4 8.4 5.6 10 10.4Z"></path></svg>
-            )
-        };
+  useEffect(() => {
+    let timer;
+    if (step === 3) {
+      setCleaningProgress(0);
+      timer = setInterval(() => {
+        setCleaningProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(timer);
+            return 100;
+          }
+          return prev + 1;
+        });
+      }, 30);
+    }
+    return () => clearInterval(timer);
+  }, [step]);
 
-        const App = () => {
-            const [step, setStep] = useState(0); 
-            const [stream, setStream] = useState(null);
-            const [capturedImage, setCapturedImage] = useState(null);
-            const [targetPoint, setTargetPoint] = useState({ x: 50, y: 50 });
-            const [cleaningProgress, setCleaningProgress] = useState(0);
-            const [error, setError] = useState(null);
-            
-            const aiAnalysis = {
-                fabric: "精梳棉 (95% Cotton)",
-                stain: "重度油漬 (Chili Oil)",
-                solution: "生物酶靶向因子 - 配方 A102"
-            };
+  const startCamera = async () => {
+    try {
+      if (!navigator.mediaDevices) {
+        setError('此裝置不支援相機');
+        return;
+      }
 
-            const businessScenarios = [
-                { title: "專業旗艦款", srp: 88.0, cost: 26.4, margin: "70%", tag: "HOT", color: "blue" },
-                { title: "家庭量販組", srp: 199.0, cost: 89.5, margin: "55%", tag: "VALUE", color: "cyan" },
-                { title: "環保濃縮裝", srp: 42.0, cost: 10.5, margin: "75%", tag: "PROFIT", color: "indigo" }
-            ];
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false
+      });
 
-            const videoRef = useRef(null);
-            const canvasRef = useRef(null);
-            const fileInputRef = useRef(null);
+      setStream(mediaStream);
+      setStep(1);
+    } catch (err) {
+      setError('相機權限失敗（請確認 HTTPS）');
+    }
+  };
 
-            useEffect(() => {
-                if (step === 1 && stream && videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-            }, [step, stream]);
+  const takePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
 
-            useEffect(() => {
-                let timer;
-                if (step === 3) {
-                    setCleaningProgress(0);
-                    timer = setInterval(() => {
-                        setCleaningProgress(prev => {
-                            if (prev >= 100) {
-                                clearInterval(timer);
-                                return 100;
-                            }
-                            return prev + 1;
-                        });
-                    }, 35); 
-                }
-                return () => clearInterval(timer);
-            }, [step]);
+    if (!video || !canvas) return;
 
-            const startCamera = async () => {
-                setError(null);
-                try {
-                    const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
-                    const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                    setStream(mediaStream);
-                    setStep(1);
-                } catch (err) {
-                    console.error(err);
-                    setError("無法啟動相機。請確保在 HTTPS 環境下執行並授予權限。");
-                }
-            };
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-            const takePhoto = () => {
-                const video = videoRef.current;
-                const canvas = canvasRef.current;
-                if (video && canvas && video.readyState >= 2) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0);
-                    const dataUrl = canvas.toDataURL('image/png');
-                    
-                    if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                        setStream(null);
-                    }
-                    
-                    setCapturedImage(dataUrl);
-                    setStep(2);
-                } else {
-                    setError("相機尚未就緒，請稍後再試。");
-                }
-            };
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
 
-            const reset = () => {
-                if (stream) stream.getTracks().forEach(track => track.stop());
-                setStep(0);
-                setStream(null);
-                setCapturedImage(null);
-                setCleaningProgress(0);
-                setError(null);
-            };
+    const dataUrl = canvas.toDataURL('image/png');
 
-            return (
-                <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center overflow-hidden">
-                    {/* 頂部導航 - 始終展示拍攝縮圖 */}
-                    <div className="fixed top-0 w-full p-4 bg-slate-950/90 backdrop-blur-md z-50 flex justify-between items-center border-b border-white/10">
-                        <div className="flex items-center gap-3">
-                            {capturedImage ? (
-                                <div className="w-10 h-10 border-2 border-blue-500 rounded-lg overflow-hidden shadow-lg transition-all duration-500">
-                                    <img src={capturedImage} className="w-full h-full object-cover" alt="thumb" />
-                                </div>
-                            ) : (
-                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <Icons.Zap />
-                                </div>
-                            )}
-                            <div className="text-left">
-                                <h1 className="text-sm font-black italic tracking-tighter uppercase leading-none text-blue-400">ZONE 02 - AR LAB</h1>
-                                <p className="text-[10px] font-bold tracking-[0.2em] text-white/50 uppercase">Molecular Targeted Lab</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-1.5">
-                            {[1, 2, 3, 4, 5].map(i => (
-                                <div key={i} className={`h-1.5 rounded-full transition-all duration-700 ${step >= i ? 'w-5 bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'w-1.5 bg-slate-800'}`} />
-                            ))}
-                        </div>
-                    </div>
+    stream?.getTracks().forEach(track => track.stop());
+    setStream(null);
 
-                    {/* 主體驗視窗 */}
-                    <main className="relative w-full max-w-md aspect-[9/16] bg-slate-900 shadow-2xl border-x border-slate-800 overflow-hidden">
-                        
-                        {/* Step 0: Welcome */}
-                        {step === 0 && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center space-y-10 animate-in fade-in duration-500">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-blue-500 blur-[80px] opacity-20 animate-pulse" />
-                                    <div className="relative w-32 h-32 bg-slate-800 rounded-[2.5rem] border border-slate-700 flex items-center justify-center shadow-2xl">
-                                        <Icons.Camera />
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-tight">靶向洗淨<br/><span className="text-blue-500">視覺演示</span></h2>
-                                    <p className="text-slate-400 text-sm leading-relaxed px-6">AI 自動識別面料與污漬，匹配最佳生物酶配方，還原衣物本色</p>
-                                </div>
-                                {error && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs flex items-center gap-2"><span>⚠</span> {error}</div>}
-                                <div className="w-full space-y-3 px-4">
-                                    <button onClick={startCamera} className="w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all">立即開啟掃描</button>
-                                    <button onClick={() => fileInputRef.current.click()} className="w-full py-4 bg-slate-800 border border-slate-700 rounded-2xl font-bold text-sm text-slate-300 flex items-center justify-center gap-2"><Icons.Upload /> 載入樣本圖片</button>
-                                </div>
-                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => { setCapturedImage(ev.target.result); setStep(2); };
-                                        reader.readAsDataURL(file);
-                                    }
-                                }} />
-                            </div>
-                        )}
+    setCapturedImage(dataUrl);
+    setStep(2);
+  };
 
-                        {/* Step 1: Camera View */}
-                        {step === 1 && (
-                            <div className="absolute inset-0 bg-black">
-                                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
-                                <div className="absolute inset-0 pointer-events-none p-10">
-                                    <div className="w-full h-full border-2 border-blue-400/20 relative">
-                                        <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-blue-400" />
-                                        <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-blue-400" />
-                                        <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-blue-400" />
-                                        <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-blue-400" />
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-400/10 to-transparent h-1/4 animate-scan" />
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-16 w-full flex flex-col items-center gap-6 px-10">
-                                    <button onClick={takePhoto} className="w-20 h-20 bg-white rounded-full border-[8px] border-slate-900 shadow-2xl active:scale-90 transition-all" />
-                                </div>
-                            </div>
-                        )}
+  const reset = () => {
+    stream?.getTracks().forEach(track => track.stop());
+    setStep(0);
+    setCapturedImage(null);
+    setCleaningProgress(0);
+  };
 
-                        {/* Step 2 & 3: Selection & Physical Erasure */}
-                        {(step === 2 || step === 3) && (
-                            <div className="absolute inset-0" onClick={(e) => {
-                                if (step !== 2) return;
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setTargetPoint({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
-                            }}>
-                                <img src={capturedImage} className={`absolute inset-0 w-full h-full object-cover brightness-[0.7] grayscale-[0.2]`} />
-                                <img src={capturedImage} className={`absolute inset-0 w-full h-full object-cover transition-all duration-150 ${step === 3 ? 'brightness-125 saturate-[1.2]' : 'opacity-0'}`} 
-                                    style={{ clipPath: step === 3 ? `circle(${cleaningProgress * 1.6}% at ${targetPoint.x}% ${targetPoint.y}%)` : 'circle(0% at 50% 50%)' }} />
-                                
-                                <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${targetPoint.x}%`, top: `${targetPoint.y}%` }}>
-                                    <div className={`w-20 h-20 border-2 rounded-full flex items-center justify-center ${step === 3 ? 'border-cyan-400/50 scale-125' : 'border-white/40 animate-pulse'}`}>
-                                        <div className={`w-2 h-2 rounded-full ${step === 3 ? 'bg-cyan-400 shadow-[0_0_15px_#22d3ee]' : 'bg-white'}`} />
-                                        <div className={`absolute inset-0 border-t-2 rounded-full animate-spin ${step === 3 ? 'border-cyan-400' : 'border-white'}`} />
-                                    </div>
-                                    {step === 3 && cleaningProgress < 100 && (
-                                        <div className="ripple-effect" style={{ width: '150px', height: '150px' }} />
-                                    )}
-                                </div>
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#020617',
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
 
-                                <div className="absolute bottom-0 w-full p-10 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent">
-                                    {step === 2 ? (
-                                        <div className="space-y-6">
-                                            <div className="bg-cyan-400/10 p-3 rounded-xl border border-cyan-400/20 text-xs font-bold text-center text-cyan-400">點擊污漬中心點進行靶向定位</div>
-                                            <button onClick={(e) => { e.stopPropagation(); setStep(3); }} className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl text-xl shadow-[0_16px_48px_rgba(6,182,212,0.3)]">啟動分子級瓦解</button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-5">
-                                            <div className="flex justify-between items-end">
-                                                <span className="font-black text-xs uppercase text-cyan-400">Eliminating Stains...</span>
-                                                <span className="font-mono text-3xl font-black text-white">{cleaningProgress}%</span>
-                                            </div>
-                                            <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 p-0.5">
-                                                <div className="h-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 rounded-full transition-all duration-100" style={{ width: `${cleaningProgress}%` }} />
-                                            </div>
-                                            {cleaningProgress >= 100 && (
-                                                <button onClick={(e) => { e.stopPropagation(); setStep(4); }} className="w-full py-4 bg-white text-slate-950 font-black rounded-2xl text-xl shadow-2xl animate-bounce">完成，查看分析報告</button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+      <div style={{ width: 320, height: 600, position: 'relative' }}>
 
-                        {/* Step 4: AI Analysis */}
-                        {step === 4 && (
-                            <div className="absolute inset-0 bg-slate-950 p-8 flex flex-col justify-center animate-slide-up">
-                                <div className="flex items-center gap-4 mb-10 p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl">
-                                    <Icons.Microscope />
-                                    <div className="text-left">
-                                        <h3 className="font-black text-blue-400 uppercase tracking-tighter italic">AI 分析結論</h3>
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest font-mono">Molecular Analysis Completed</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-6">
-                                    {[
-                                        { label: "識別面料類型", value: aiAnalysis.fabric, icon: "ℹ" },
-                                        { label: "污漬成分鑑定", value: aiAnalysis.stain, icon: "🎯" },
-                                        { label: "推薦洗滌方案", value: aiAnalysis.solution, icon: "💧", highlight: true }
-                                    ].map((item, idx) => (
-                                        <div key={idx} className={`bg-slate-900 border ${item.highlight ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800'} rounded-2xl p-5 text-left`}>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                <span className="text-blue-400">{item.icon}</span> {item.label}
-                                            </p>
-                                            <p className={`text-xl font-black ${item.highlight ? 'text-emerald-400' : 'text-white'}`}>{item.value}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={() => setStep(5)} className="mt-12 w-full py-5 bg-blue-600 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all">查看商業數據轉換 →</button>
-                            </div>
-                        )}
+        {step === 0 && (
+          <div style={{ textAlign: 'center' }}>
+            <h1>AR 洗淨 Demo</h1>
+            <button onClick={startCamera}>啟動相機</button>
+            {error && <p>{error}</p>}
+          </div>
+        )}
 
-                        {/* Step 5: Final Report */}
-                        {step === 5 && (
-                            <div className="absolute inset-0 bg-slate-950 p-6 flex flex-col overflow-y-auto">
-                                <div className="mt-16 space-y-6 pb-28">
-                                    <div className="text-center space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Business Conversion Report</p>
-                                        <h2 className="text-3xl font-black italic text-blue-400 uppercase tracking-tighter">商業收益矩陣</h2>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {businessScenarios.map((item, idx) => (
-                                            <div key={idx} className="relative bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-4 hover:border-blue-500/30 transition-colors">
-                                                <div className="absolute -top-2.5 right-4 px-3 py-1 bg-blue-600 text-[9px] font-black rounded-lg shadow-lg rotate-2">{item.tag}</div>
-                                                <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                                                    <span className="font-black uppercase tracking-tight text-white">{item.title}</span>
-                                                    <span className="text-emerald-400 font-black text-xs">毛利額 {item.margin}</span>
-                                                </div>
-                                                <div className="flex justify-between items-end">
-                                                    <div className="space-y-1 text-left">
-                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">零售單價</p>
-                                                        <p className="text-2xl font-mono font-black text-blue-400">¥ {item.srp.toFixed(2)}</p>
-                                                    </div>
-                                                    <div className="text-right space-y-1">
-                                                        <p className="text-slate-500 text-[9px] uppercase font-bold tracking-widest font-mono">渠道進價</p>
-                                                        <p className="text-xl font-mono font-bold text-slate-600 italic">¥ {item.cost.toFixed(2)}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button onClick={reset} className="flex items-center gap-2 text-slate-500 mx-auto text-xs font-bold py-6 hover:text-white transition-colors">
-                                        <Icons.Refresh /> 重新進行樣本測試
-                                    </button>
-                                </div>
-                                <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent z-50 flex justify-center">
-                                    <button className="w-full max-w-md py-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl font-black text-lg shadow-[0_16px_48px_rgba(37,99,235,0.4)]">鎖定專利配方並立即訂購</button>
-                                </div>
-                            </div>
-                        )}
-                        
-                        <canvas ref={canvasRef} className="hidden" />
-                    </main>
+        {step === 1 && (
+          <div>
+            <video ref={videoRef} autoPlay style={{ width: '100%' }} />
+            <button onClick={takePhoto}>拍照</button>
+          </div>
+        )}
 
-                    <div className="mt-8 flex items-center gap-5 text-slate-700 text-[9px] font-black tracking-[0.4em] uppercase">
-                        <span className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-sm rotate-45 animate-pulse" /> 
-                            System Online
-                        </span>
-                        <div className="w-1 h-1 bg-slate-800 rounded-full" />
-                        <span>v6.0.2-Stable</span>
-                    </div>
-                </div>
-            );
-        };
+        {(step === 2 || step === 3) && (
+          <div
+            onClick={(e) => {
+              if (step !== 2) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              setTargetPoint({
+                x: ((e.clientX - rect.left) / rect.width) * 100,
+                y: ((e.clientY - rect.top) / rect.height) * 100
+              });
+            }}
+          >
+            <img src={capturedImage} style={{ width: '100%' }} />
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+            {step === 2 && (
+              <button onClick={() => setStep(3)}>開始清潔</button>
+            )}
+
+            {step === 3 && (
+              <div>
+                <p>{cleaningProgress}%</p>
+                {cleaningProgress >= 100 && (
+                  <button onClick={() => setStep(4)}>完成</button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div>
+            <h2>AI 分析完成</h2>
+            <p>棉質 / 油漬 / 生物酶配方</p>
+            <button onClick={() => setStep(5)}>商業模式</button>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div>
+            <h2>商業模型</h2>
+            <p>高毛利產品組合</p>
+            <button onClick={reset}>重新開始</button>
+          </div>
+        )}
+
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+      </div>
+    </div>
+  );
+}
